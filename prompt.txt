@@ -19,6 +19,7 @@
 
 【状態】
 今回は南砺市関連のニュースが{has_main_text}
+現在の日時（システム時刻）: {current_date_text}
 
 【記事一覧】
 {articles_text}

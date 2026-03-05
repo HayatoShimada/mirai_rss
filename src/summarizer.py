@@ -1,5 +1,6 @@
 import json
 import logging
+import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from google import genai
@@ -67,11 +68,15 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
         prompt_template = load_prompt_template()
         has_main_text = "ありました。できるだけ南砺市の記事を優先して選出しつつ、枠が余る場合はその他の有益な情報から選出してください。" if has_main else "ありませんでした。代わりに提供された全国や近隣県の有益なニュースから提供してください。"
         
+        # Format the current date for the prompt
+        current_date_text = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y年%m月%d日 %H時%M分')
+        
         # Optionally, format the posted URLs if the prompt needs them
         posted_urls_text = "\n".join([f"- {url}" for url in posted_urls]) if posted_urls else "なし"
         
         prompt = prompt_template.format(
-            has_main_text=has_main_text, 
+            has_main_text=has_main_text,
+            current_date_text=current_date_text,
             articles_text=articles_text,
             posted_urls_text=posted_urls_text
         )
