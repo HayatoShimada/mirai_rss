@@ -11,6 +11,9 @@
 | https://jisolabo.com/ | HTML | article |
 | https://matidukuri-inami.co.jp/ | HTML | .news-list li |
 | https://webun.jp/subcategory/南砺市 | HTML | .list-item |
+| https://www.kurashi.city.nanto.toyama.jp/bank | HTML | .list-item |
+| https://bouso.net/ (南砺市 空き家・移住関連) | HTML | .post-list |
+| https://diyers.co.jp/ | HTML | .article-list__item |
 
 ## 代替用
 | URL | Type | Selector |

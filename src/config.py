@@ -60,9 +60,12 @@ def load_sources_list(filepath="sources.md") -> Dict[str, List[Source]]:
                         # Skip header and separator rows
                         continue
                         
-                    if url.startswith("http"):
+                    # Extract just the URL if there's text after it (e.g. "https://example.com (note)")
+                    clean_url = url.split(" ")[0] if url.lower().startswith("http") else url
+                        
+                    if clean_url.startswith("http"):
                         sources_dict[current_category].append(
-                            Source(url=url, type=src_type, selector=selector)
+                            Source(url=clean_url, type=src_type, selector=selector)
                         )
                     
     logger.info(f"Loaded {len(sources_dict['main'])} main sources and {len(sources_dict['fallback'])} fallback sources")

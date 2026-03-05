@@ -92,7 +92,7 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
                 },
                 "articles": {
                     "type": "ARRAY",
-                    "description": "厳選された最大3件の記事リスト",
+                    "description": "厳選された最大5件の記事リスト",
                     "items": {
                         "type": "OBJECT",
                         "properties": {
