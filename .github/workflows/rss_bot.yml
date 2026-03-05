@@ -1,10 +1,6 @@
 name: Mirai RSS Bot
 
 "on":
-  push:
-    branches:
-      - master
-      - main
   schedule:
     # 4:00 AM JST is 19:00 UTC the previous day
     - cron: '0 19 * * *'
