@@ -19,15 +19,25 @@ def load_prompt_template(filepath: str = "prompt.txt") -> str:
         # Fallback minimal prompt
         return "以下の記事から最も重要な3件を要約してください。\n記事一覧:\n{articles_text}"
 
-def summarize_articles(main_articles: List[Article], fallback_articles: List[Article], posted_urls: List[str] = None) -> Optional[Dict[str, Any]]:
+def summarize_articles(
+    main_articles: List[Article], 
+    fallback_articles: List[Article], 
+    main_html_urls: List[str] = None,
+    fallback_html_urls: List[str] = None,
+    posted_urls: List[str] = None
+) -> Optional[Dict[str, Any]]:
     """
-    Summarizes articles using the Gemini API.
-    Selects up to 3 articles, categorizes them, and removes duplicates.
-    Provides fallback news if main_articles is empty.
+    Summarizes RSS articles and HTML URLs using the Gemini API.
+    Selects up to 5 articles, categorizes them, and removes duplicates.
+    Provides fallback news if main sources are empty.
     Skips articles matching URLs in `posted_urls`.
     """
     if posted_urls is None:
         posted_urls = []
+    if main_html_urls is None:
+        main_html_urls = []
+    if fallback_html_urls is None:
+        fallback_html_urls = []
 
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY is not set. Skipping summarization.")
@@ -36,13 +46,15 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
         
-        has_main = len(main_articles) > 0
+        has_main = len(main_articles) > 0 or len(main_html_urls) > 0
         
-        # If there are very few main articles, include fallback articles to give Gemini more choices
-        # This prevents Gemini from hallucinating or picking extremely old articles just to fulfill the "3 items" request
+        # If there are very few main articles and URLs, include fallback articles to give Gemini more choices
         all_articles = main_articles.copy()
-        if len(main_articles) < 10:
+        all_html_urls = main_html_urls.copy()
+        
+        if len(main_articles) + len(main_html_urls) < 10:
             all_articles.extend(fallback_articles)
+            all_html_urls.extend(fallback_html_urls)
             
         # Filter out previously posted articles BEFORE sending to Gemini if possible
         articles_to_process = [art for art in all_articles if art.link not in posted_urls]
@@ -74,10 +86,14 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
         # Optionally, format the posted URLs if the prompt needs them
         posted_urls_text = "\n".join([f"- {url}" for url in posted_urls]) if posted_urls else "なし"
         
+        # Format HTML URLs
+        html_urls_text = "\n".join([f"- {url}" for url in all_html_urls]) if all_html_urls else "なし"
+        
         prompt = prompt_template.format(
             has_main_text=has_main_text,
             current_date_text=current_date_text,
             articles_text=articles_text,
+            html_urls_text=html_urls_text,
             posted_urls_text=posted_urls_text
         )
 
@@ -115,6 +131,7 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
                 response_mime_type="application/json",
                 response_schema=schema,
                 temperature=0.3,
+                tools=[{"google_search": {}}]
             ),
         )
 

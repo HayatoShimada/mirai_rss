@@ -3,7 +3,6 @@ import sys
 import logging
 from src.config import load_sources_list, setup_logging
 from src.rss_fetcher import fetch_rss_feeds
-from src.scraper import scrape_html_sources
 from src.summarizer import summarize_articles
 from src.discord_notifier import post_to_discord
 from src.storage import load_posted_urls, save_posted_urls
@@ -12,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 def process_sources(sources_list, hours_limit):
     """
-    Separates sources into RSS and HTML, fetches data from both, 
-    and returns a combined list of Article objects.
+    Separates sources into RSS and HTML.
+    Fetches RSS feeds normally, but leaves HTML sources as raw URLs for Gemini to browse.
     """
     rss_sources = [s for s in sources_list if s.type == "RSS"]
     html_sources = [s for s in sources_list if s.type == "HTML"]
@@ -21,10 +20,8 @@ def process_sources(sources_list, hours_limit):
     articles = []
     if rss_sources:
         articles.extend(fetch_rss_feeds(rss_sources, hours_limit=hours_limit))
-    if html_sources:
-        articles.extend(scrape_html_sources(html_sources))
         
-    return articles
+    return articles, html_sources
 
 def main():
     parser = argparse.ArgumentParser(description="Mirai RSS Bot")
@@ -44,22 +41,28 @@ def main():
         logger.error("No sources found. Please configure sources.md.")
         sys.exit(1)
 
-    # 2. Fetch Data (RSS + Scraped HTML)
+    # 2. Fetch Data (RSS)
     logger.info("Fetching main articles...")
-    main_articles = process_sources(main_sources, args.hours)
-    logger.info(f"Found {len(main_articles)} main articles.")
+    main_articles, main_html_sources = process_sources(main_sources, args.hours)
+    logger.info(f"Found {len(main_articles)} main RSS articles.")
 
     logger.info("Fetching fallback articles...")
-    fallback_articles = process_sources(fallback_sources, args.hours)
-    logger.info(f"Found {len(fallback_articles)} fallback articles.")
+    fallback_articles, fallback_html_sources = process_sources(fallback_sources, args.hours)
+    logger.info(f"Found {len(fallback_articles)} fallback RSS articles.")
 
     # 3. Load Posted URLs History
     posted_urls = load_posted_urls()
     logger.info(f"Loaded {len(posted_urls)} previously posted URLs from history.")
 
     # 4. Summarize with Gemini
-    logger.info("Summarizing articles with Gemini...")
-    summary_data = summarize_articles(main_articles, fallback_articles, posted_urls)
+    logger.info("Summarizing articles and searching HTML URLs with Gemini...")
+    summary_data = summarize_articles(
+        main_articles=main_articles, 
+        fallback_articles=fallback_articles, 
+        main_html_urls=[s.url for s in main_html_sources],
+        fallback_html_urls=[s.url for s in fallback_html_sources],
+        posted_urls=posted_urls
+    )
     
     if not summary_data:
         logger.error("Failed to generate summary.")
