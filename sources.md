@@ -17,7 +17,7 @@
 |---|---|---|
 | https://mirasapo-plus.go.jp/rss_feed/ | RSS | |
 | https://j-net21.smrj.go.jp/ | HTML | .news_list li |
-| https://www.chubu.meti.go.jp/rss/index.html | RSS | |
+| https://www.chubu.meti.go.jp/rss/ml_index_news_rss_all.xml | RSS | |
 | https://www.kantei.go.jp/jp/joho/news/index.html | HTML | .news-list li |
 | https://joseikin-now.jp/ | HTML | article |
 | https://smbiz.asahi.com/ | HTML | .list-item |
