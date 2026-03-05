@@ -22,7 +22,7 @@
 | https://www.kantei.go.jp/jp/joho/news/index.html | HTML | .news-list li |
 | https://joseikin-now.jp/ | HTML | article |
 | https://smbiz.asahi.com/ | HTML | .list-item |
-| https://corp.itmedia.co.jp/media/rss_list/ | HTML | .rss-list li |
+| https://rss.itmedia.co.jp/rss/2.0/marketing.xml | RSS | |
 | https://ab.jcci.or.jp/ | HTML | .news-list li |
 | https://www.rodo.co.jp/ | HTML | .news-list li |
 | https://www.tsr-net.co.jp/ | HTML | .news-list li |
