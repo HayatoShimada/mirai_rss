@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def fetch_url(url: str, timeout: int = 15) -> bytes:
     """Fetches url content with a timeout and retry logic."""
-    response = requests.get(url, timeout=timeout)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    response = requests.get(url, headers=headers, timeout=timeout)
     response.raise_for_status()
     return response.content
 
