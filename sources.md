@@ -15,7 +15,7 @@
 ## 代替用
 | URL | Type | Selector |
 |---|---|---|
-| https://mirasapo-plus.go.jp/category/infomation/subsidy/feed/ | RSS | |
+| https://mirasapo-plus.go.jp/category/infomation/feed/ | RSS | |
 | https://j-net21.smrj.go.jp/ | HTML | .news_list li |
 | https://www.chubu.meti.go.jp/rss/ml_index_news_rss_all.xml | RSS | |
 | https://www.kantei.go.jp/jp/joho/news/index.html | HTML | .news-list li |
