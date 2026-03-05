@@ -1,26 +1,41 @@
 import json
+import logging
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 from google import genai
 from google.genai import types
-from src.config import GEMINI_API_KEY
 
-def summarize_articles(main_articles, fallback_articles):
+from src.config import GEMINI_API_KEY
+from src.models import Article
+
+logger = logging.getLogger(__name__)
+
+def load_prompt_template(filepath: str = "prompt.txt") -> str:
+    try:
+        return Path(filepath).read_text(encoding="utf-8")
+    except Exception as e:
+        logger.error(f"Failed to load prompt template from {filepath}: {e}")
+        # Fallback minimal prompt
+        return "以下の記事から最も重要な3件を要約してください。\n記事一覧:\n{articles_text}"
+
+def summarize_articles(main_articles: List[Article], fallback_articles: List[Article]) -> Optional[Dict[str, Any]]:
     """
     Summarizes articles using the Gemini API.
     Selects up to 3 articles, categorizes them, and removes duplicates.
     Provides fallback news if main_articles is empty.
     """
     if not GEMINI_API_KEY:
-        print("Warning: GEMINI_API_KEY is not set.")
+        logger.warning("GEMINI_API_KEY is not set. Skipping summarization.")
         return None
 
     try:
-        # Initialize Gemini Free Tier compatible model
         client = genai.Client(api_key=GEMINI_API_KEY)
         
         has_main = len(main_articles) > 0
         articles_to_process = main_articles if has_main else fallback_articles
         
         if not articles_to_process:
+            logger.info("No articles to process (both main and fallback are empty).")
             return {
                 "has_main": False,
                 "message": "本日は南砺市関連のニュース、および代替ニュースのどちらも取得できませんでした。",
@@ -30,34 +45,23 @@ def summarize_articles(main_articles, fallback_articles):
         # Prepare payload
         articles_text = ""
         for i, art in enumerate(articles_to_process):
-            articles_text += f"[{i+1}] Title: {art['title']}\n"
-            articles_text += f"Link: {art['link']}\n"
-            articles_text += f"Source: {art['source']}\n"
-            if art['summary']:
-                articles_text += f"Summary: {art['summary'][:200]}...\n" # Truncate long summaries
+            articles_text += f"[{i+1}] Title: {art.title}\n"
+            articles_text += f"Link: {art.link}\n"
+            articles_text += f"Source: {art.source}\n"
+            if art.summary:
+                articles_text += f"Summary: {art.summary[:200]}...\n"
             articles_text += "\n"
 
-        prompt = f"""
-あなたは富山県南砺市で新しく小規模事業を始める人々（ミライ店主会）に向けた、有益な情報を提供するアシスタントです。
-以下の記事リストから、重複する内容を排除し、彼らにとって最も有益・重要な記事を**最大3件**選出してください。
+        prompt_template = load_prompt_template()
+        has_main_text = "ありました。南砺市の記事から選出してください。" if has_main else "ありませんでした。代わりに全国や近隣県のニュースを提供します。"
+        
+        prompt = prompt_template.format(
+            has_main_text=has_main_text, 
+            articles_text=articles_text
+        )
 
-【ルール】
-1. 以下のカテゴリのいずれかに分類してください：
-   - ニュース (一般、地域問わず)
-   - 補助金・法律 (ビジネスに直結する制度や法律変更など)
-   - イベント (セミナー、地域の催し物など)
-2. 同じトピックの記事は1つにまとめてください。
-3. 要約は箇条書きや短い段落を用いて、パッと見て分かりやすいように2〜3行程度でまとめてください。
-4. 必ず指定されたJSONスキーマに従って出力してください。Markdownのコードブロック(```json ... ```)は付けないでください。
+        logger.info(f"Sending {len(articles_to_process)} articles to Gemini for summarization.")
 
-【状態】
-今回は南砺市関連のニュースが{"ありました。南砺市の記事から選出してください。" if has_main else "ありませんでした。代わりに全国や近隣県のニュースを提供します。"}
-
-【記事一覧】
-{articles_text}
-"""
-
-        # Define expected output schema
         schema = {
             "type": "OBJECT",
             "properties": {
@@ -95,13 +99,10 @@ def summarize_articles(main_articles, fallback_articles):
 
         result = json.loads(response.text)
         result["has_main"] = has_main
+        
+        logger.info(f"Successfully generated summary with {len(result.get('articles', []))} articles.")
         return result
 
     except Exception as e:
-        print(f"Error during Gemini summarization: {e}")
+        logger.error(f"Error during Gemini summarization: {e}", exc_info=True)
         return None
-
-if __name__ == "__main__":
-    # Test stub
-    test_main = [{"title": "南砺市で新しい補助金が開始", "link": "http://example.com/1", "source": "Webun", "summary": "最大100万円の補助金"}]
-    print(summarize_articles(test_main, []))

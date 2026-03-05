@@ -1,6 +1,9 @@
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
+from typing import Dict, List
+from src.models import Source
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -8,10 +11,18 @@ load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-def load_sources_list(filepath="sources.md"):
+logger = logging.getLogger(__name__)
+
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+
+def load_sources_list(filepath="sources.md") -> Dict[str, List[Source]]:
     """
     Parses the sources.md file to extract URLs, types, and selectors by category.
-    Returns a dictionary of categories and their corresponding lists of dicts.
+    Returns a dictionary of categories and their corresponding lists of Source objects.
     """
     sources_dict = {
         "main": [],
@@ -20,7 +31,7 @@ def load_sources_list(filepath="sources.md"):
     
     path = Path(filepath)
     if not path.exists():
-        print(f"Warning: {filepath} not found.")
+        logger.warning(f"{filepath} not found.")
         return sources_dict
 
     current_category = None
@@ -43,22 +54,22 @@ def load_sources_list(filepath="sources.md"):
                 if len(parts) >= 4:
                     url = parts[1]
                     src_type = parts[2].upper()
-                    selector = parts[3]
+                    selector = parts[3] if parts[3] else None
                     
                     if url == "URL" or "---" in url:
                         # Skip header and separator rows
                         continue
                         
                     if url.startswith("http"):
-                        sources_dict[current_category].append({
-                            "url": url,
-                            "type": src_type,
-                            "selector": selector
-                        })
+                        sources_dict[current_category].append(
+                            Source(url=url, type=src_type, selector=selector)
+                        )
                     
+    logger.info(f"Loaded {len(sources_dict['main'])} main sources and {len(sources_dict['fallback'])} fallback sources")
     return sources_dict
 
 if __name__ == "__main__":
+    setup_logging()
     srcs = load_sources_list()
-    print("Main Sources:", srcs.get("main"))
-    print("Fallback Sources:", srcs.get("fallback"))
+    logger.info(f"Main Sources: {srcs.get('main')}")
+    logger.info(f"Fallback Sources: {srcs.get('fallback')}")

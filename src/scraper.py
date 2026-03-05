@@ -1,11 +1,24 @@
+import logging
 import requests
 from bs4 import BeautifulSoup
-from typing import List, Dict, Any
+from typing import List
+from urllib.parse import urljoin
+from tenacity import retry, stop_after_attempt, wait_exponential
 
-def scrape_html_sources(sources: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+from src.models import Source, Article
+
+logger = logging.getLogger(__name__)
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+def _fetch_html_with_retry(url: str, headers: dict) -> bytes:
+    response = requests.get(url, headers=headers, timeout=10)
+    response.raise_for_status()
+    return response.content
+
+def scrape_html_sources(sources: List[Source]) -> List[Article]:
     """
-    Scrapes HTML from a list of source dicts {"url": "...", "selector": "..."}.
-    Returns a list of extracted text articles/items.
+    Scrapes HTML from a list of Source objects.
+    Returns a list of extracted Article objects.
     """
     articles = []
     
@@ -14,18 +27,18 @@ def scrape_html_sources(sources: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     }
 
     for src in sources:
-        url = src.get("url")
-        selector = src.get("selector")
-        
-        if not url or not selector:
+        if src.type != "HTML" or not src.selector:
             continue
             
         try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
+            logger.info(f"Scraping HTML from {src.url} using selector '{src.selector}'")
+            content = _fetch_html_with_retry(src.url, headers)
             
-            soup = BeautifulSoup(response.content, 'html.parser')
-            elements = soup.select(selector)
+            soup = BeautifulSoup(content, 'html.parser')
+            # Handle multiple selectors by joining them with comma (CSS standard)
+            elements = soup.select(src.selector)
+            
+            logger.debug(f"Found {len(elements)} elements matching '{src.selector}' on {src.url}")
             
             for index, el in enumerate(elements):
                 # Limiting to first 10 items per site to prevent overflow
@@ -34,33 +47,22 @@ def scrape_html_sources(sources: List[Dict[str, str]]) -> List[Dict[str, Any]]:
                     
                 text = el.get_text(separator="\n", strip=True)
                 if text:
-                    # Find first link inside the element, or default to page URL
                     link_el = el.find('a')
-                    item_link = url
+                    item_link = src.url
                     if link_el and link_el.has_attr('href'):
                         href = link_el['href']
                         if href.startswith('http'):
                             item_link = href
                         else:
-                            # Basic relative URL resolution
-                            from urllib.parse import urljoin
-                            item_link = urljoin(url, href)
+                            item_link = urljoin(src.url, href)
 
-                    articles.append({
-                        "title": f"New Update from {soup.title.string if soup.title else 'Website'}",
-                        "link": item_link,
-                        "published": "", # Unreliable to parse from arbitrary HTML
-                        "summary": text,
-                        "source": url
-                    })
+                    articles.append(Article(
+                        title=f"New Update from {soup.title.string if soup.title else 'Website'}",
+                        link=item_link,
+                        summary=text,
+                        source=src.url
+                    ))
         except Exception as e:
-            print(f"Error scraping {url}: {e}")
+            logger.error(f"Error scraping {src.url}: {e}", exc_info=True)
 
     return articles
-
-if __name__ == "__main__":
-    # Test
-    test_src = [{"url": "https://www.city.nanto.toyama.jp/cms-sypher/www/info/index.jsp", "selector": ".info_list li"}]
-    arts = scrape_html_sources(test_src)
-    for a in arts[:3]: # print first 3
-        print(f"- {a['summary'][:50]}... ({a['link']})")

@@ -1,47 +1,60 @@
+import logging
 import feedparser
 import datetime
-from typing import List, Dict, Any
+from dateutil import parser as date_parser
+from typing import List
 
-def fetch_rss_feeds(urls: List[str], hours_limit: int = 24) -> List[Dict[str, Any]]:
+from src.models import Source, Article
+
+logger = logging.getLogger(__name__)
+
+def fetch_rss_feeds(sources: List[Source], hours_limit: int = 24) -> List[Article]:
     """
-    Fetches rss feeds from a list of URLs and returns articles published within the hours_limit.
+    Fetches RSS feeds from a list of Source objects and returns Article objects 
+    published within the hours_limit.
     """
     articles = []
     
-    # Calculate the cutoff time (naive UTC for simplicity if feed returns UTC, 
-    # butfeedparser parsed_datetime is a time struct. We'll convert to timestamp)
-    now_ts = datetime.datetime.now().timestamp()
-    cutoff_ts = now_ts - (hours_limit * 3600)
+    # We use aware datetimes for accurate comparison
+    now_aware = datetime.datetime.now(datetime.timezone.utc)
+    cutoff_time = now_aware - datetime.timedelta(hours=hours_limit)
 
-    for url in urls:
+    for src in sources:
+        if src.type != "RSS":
+            continue
+            
+        logger.info(f"Fetching RSS feed: {src.url}")
         try:
-            feed = feedparser.parse(url)
+            feed = feedparser.parse(src.url)
+            source_title = feed.feed.get('title', src.url)
+            
             for entry in feed.entries:
-                # Try to get the published time
-                pub_tuple = entry.get('published_parsed') or entry.get('updated_parsed')
-                if pub_tuple:
-                    import time
-                    article_ts = time.mktime(pub_tuple)
-                    if article_ts >= cutoff_ts:
-                        articles.append({
-                            "title": entry.get('title', ''),
-                            "link": entry.get('link', ''),
-                            "published": entry.get('published', ''),
-                            "summary": entry.get('summary', '') or entry.get('description', ''),
-                            "source": feed.feed.get('title', url)
-                        })
-                else:
-                    # If no date is found, we might want to include it anyway, or skip. 
-                    # Let's skip for stricter time filtering.
-                    pass
+                pub_string = entry.get('published') or entry.get('updated')
+                
+                # Check timeframe if a date exists
+                if pub_string:
+                    try:
+                        pub_dt = date_parser.parse(pub_string)
+                        # Ensure timezone awareness
+                        if pub_dt.tzinfo is None:
+                            pub_dt = pub_dt.replace(tzinfo=datetime.timezone.utc)
+                            
+                        if pub_dt < cutoff_time:
+                            continue # Skip old articles
+                            
+                    except ValueError:
+                        logger.warning(f"Could not parse date '{pub_string}' from {src.url}. Including article anyway.")
+                        pass # Include if we can't parse
+
+                articles.append(Article(
+                    title=entry.get('title', 'No Title'),
+                    link=entry.get('link', ''),
+                    published=pub_string or '',
+                    summary=entry.get('summary', '') or entry.get('description', ''),
+                    source=source_title
+                ))
+                
         except Exception as e:
-            print(f"Error fetching {url}: {e}")
+            logger.error(f"Error fetching RSS {src.url}: {e}", exc_info=True)
 
     return articles
-
-if __name__ == "__main__":
-    test_urls = ["https://news.yahoo.co.jp/rss/topics/top-picks.xml"]
-    print(f"Fetching {test_urls} for articles in the last 24h...")
-    arts = fetch_rss_feeds(test_urls)
-    for a in arts:
-        print(f"- {a['title']} ({a['published']})")
