@@ -16,6 +16,7 @@
 | URL | Type | Selector |
 |---|---|---|
 | https://mirasapo-plus.go.jp/category/infomation/feed/ | RSS | |
+| https://mirasapo-plus.go.jp/category/infomation/event/feed/ | RSS | |
 | https://j-net21.smrj.go.jp/ | HTML | .news_list li |
 | https://www.chubu.meti.go.jp/rss/ml_index_news_rss_all.xml | RSS | |
 | https://www.kantei.go.jp/jp/joho/news/index.html | HTML | .news-list li |
