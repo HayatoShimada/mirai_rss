@@ -18,12 +18,16 @@ def load_prompt_template(filepath: str = "prompt.txt") -> str:
         # Fallback minimal prompt
         return "以下の記事から最も重要な3件を要約してください。\n記事一覧:\n{articles_text}"
 
-def summarize_articles(main_articles: List[Article], fallback_articles: List[Article]) -> Optional[Dict[str, Any]]:
+def summarize_articles(main_articles: List[Article], fallback_articles: List[Article], posted_urls: List[str] = None) -> Optional[Dict[str, Any]]:
     """
     Summarizes articles using the Gemini API.
     Selects up to 3 articles, categorizes them, and removes duplicates.
     Provides fallback news if main_articles is empty.
+    Skips articles matching URLs in `posted_urls`.
     """
+    if posted_urls is None:
+        posted_urls = []
+
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY is not set. Skipping summarization.")
         return None
@@ -32,13 +36,17 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
         client = genai.Client(api_key=GEMINI_API_KEY)
         
         has_main = len(main_articles) > 0
-        articles_to_process = main_articles if has_main else fallback_articles
+        all_articles = main_articles if has_main else fallback_articles
+        
+        # Filter out previously posted articles BEFORE sending to Gemini if possible,
+        # but also provide the list to Gemini for extra safety processing
+        articles_to_process = [art for art in all_articles if art.link not in posted_urls]
         
         if not articles_to_process:
-            logger.info("No articles to process (both main and fallback are empty).")
+            logger.info("No new, unposted articles to process.")
             return {
                 "has_main": False,
-                "message": "本日は南砺市関連のニュース、および代替ニュースのどちらも取得できませんでした。",
+                "message": "本日は新しくお伝えできるお知らせや、関連ニュースがありませんでした。",
                 "articles": []
             }
 
@@ -55,9 +63,13 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
         prompt_template = load_prompt_template()
         has_main_text = "ありました。南砺市の記事から選出してください。" if has_main else "ありませんでした。代わりに全国や近隣県のニュースを提供します。"
         
+        # Optionally, format the posted URLs if the prompt needs them
+        posted_urls_text = "\n".join([f"- {url}" for url in posted_urls]) if posted_urls else "なし"
+        
         prompt = prompt_template.format(
             has_main_text=has_main_text, 
-            articles_text=articles_text
+            articles_text=articles_text,
+            posted_urls_text=posted_urls_text
         )
 
         logger.info(f"Sending {len(articles_to_process)} articles to Gemini for summarization.")

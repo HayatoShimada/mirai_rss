@@ -32,3 +32,11 @@ jobs:
         PYTHONPATH: ${{ github.workspace }}
       run: |
         python src/main.py
+
+    - name: Commit and push posted articles history
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add posted_articles.json || true
+        # Only commit if there are changes
+        git diff --staged --quiet || (git commit -m "chore: Update posted_articles.json history" && git push)

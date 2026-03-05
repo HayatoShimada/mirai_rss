@@ -6,6 +6,7 @@ from src.rss_fetcher import fetch_rss_feeds
 from src.scraper import scrape_html_sources
 from src.summarizer import summarize_articles
 from src.discord_notifier import post_to_discord
+from src.storage import load_posted_urls, save_posted_urls
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def process_sources(sources_list, hours_limit):
 def main():
     parser = argparse.ArgumentParser(description="Mirai RSS Bot")
     parser.add_argument("--dry-run", action="store_true", help="Run without posting to Discord")
-    parser.add_argument("--hours", type=int, default=24, help="Fetch articles from the last N hours")
+    parser.add_argument("--hours", type=int, default=168, help="Fetch articles from the last N hours (default 7 days)")
     args = parser.parse_args()
 
     setup_logging()
@@ -52,15 +53,28 @@ def main():
     fallback_articles = process_sources(fallback_sources, args.hours)
     logger.info(f"Found {len(fallback_articles)} fallback articles.")
 
-    # 3. Summarize with Gemini
+    # 3. Load Posted URLs History
+    posted_urls = load_posted_urls()
+    logger.info(f"Loaded {len(posted_urls)} previously posted URLs from history.")
+
+    # 4. Summarize with Gemini
     logger.info("Summarizing articles with Gemini...")
-    summary_data = summarize_articles(main_articles, fallback_articles)
+    summary_data = summarize_articles(main_articles, fallback_articles, posted_urls)
     
     if not summary_data:
         logger.error("Failed to generate summary.")
         sys.exit(1)
 
-    # 4. Post to Discord
+    # 5. Save Posted URLs History
+    if "articles" in summary_data and summary_data["articles"]:
+        newly_posted = [art.get("link") for art in summary_data["articles"] if art.get("link")]
+        if newly_posted:
+            logger.info(f"Adding {len(newly_posted)} URLs to posted history.")
+            # Important: Keep the order and append to the end. storage module only keeps the latest 300
+            posted_urls.extend(newly_posted)
+            save_posted_urls(posted_urls)
+
+    # 6. Post to Discord
     logger.info("Posting to Discord...")
     post_to_discord(summary_data, dry_run=args.dry_run)
 

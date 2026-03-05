@@ -1,12 +1,21 @@
 import logging
 import feedparser
 import datetime
+import requests
 from dateutil import parser as date_parser
 from typing import List
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.models import Source, Article
 
 logger = logging.getLogger(__name__)
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+def fetch_url(url: str, timeout: int = 15) -> bytes:
+    """Fetches url content with a timeout and retry logic."""
+    response = requests.get(url, timeout=timeout)
+    response.raise_for_status()
+    return response.content
 
 def fetch_rss_feeds(sources: List[Source], hours_limit: int = 24) -> List[Article]:
     """
@@ -25,7 +34,8 @@ def fetch_rss_feeds(sources: List[Source], hours_limit: int = 24) -> List[Articl
             
         logger.info(f"Fetching RSS feed: {src.url}")
         try:
-            feed = feedparser.parse(src.url)
+            content = fetch_url(src.url)
+            feed = feedparser.parse(content)
             source_title = feed.feed.get('title', src.url)
             
             for entry in feed.entries:
