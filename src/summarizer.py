@@ -36,10 +36,14 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
         client = genai.Client(api_key=GEMINI_API_KEY)
         
         has_main = len(main_articles) > 0
-        all_articles = main_articles if has_main else fallback_articles
         
-        # Filter out previously posted articles BEFORE sending to Gemini if possible,
-        # but also provide the list to Gemini for extra safety processing
+        # If there are very few main articles, include fallback articles to give Gemini more choices
+        # This prevents Gemini from hallucinating or picking extremely old articles just to fulfill the "3 items" request
+        all_articles = main_articles.copy()
+        if len(main_articles) < 10:
+            all_articles.extend(fallback_articles)
+            
+        # Filter out previously posted articles BEFORE sending to Gemini if possible
         articles_to_process = [art for art in all_articles if art.link not in posted_urls]
         
         if not articles_to_process:
@@ -61,7 +65,7 @@ def summarize_articles(main_articles: List[Article], fallback_articles: List[Art
             articles_text += "\n"
 
         prompt_template = load_prompt_template()
-        has_main_text = "ありました。南砺市の記事から選出してください。" if has_main else "ありませんでした。代わりに全国や近隣県のニュースを提供します。"
+        has_main_text = "ありました。できるだけ南砺市の記事を優先して選出しつつ、枠が余る場合はその他の有益な情報から選出してください。" if has_main else "ありませんでした。代わりに提供された全国や近隣県の有益なニュースから提供してください。"
         
         # Optionally, format the posted URLs if the prompt needs them
         posted_urls_text = "\n".join([f"- {url}" for url in posted_urls]) if posted_urls else "なし"
