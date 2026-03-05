@@ -51,10 +51,10 @@ def load_sources_list(filepath="sources.md") -> Dict[str, List[Source]]:
             # Parse Markdown Table row
             if line.startswith("|") and current_category:
                 parts = [p.strip() for p in line.split("|")]
-                if len(parts) >= 4:
+                if len(parts) >= 3:
                     url = parts[1]
                     src_type = parts[2].upper()
-                    selector = parts[3] if parts[3] else None
+                    selector = None
                     
                     if url == "URL" or "---" in url:
                         # Skip header and separator rows
