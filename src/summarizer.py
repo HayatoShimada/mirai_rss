@@ -1,6 +1,8 @@
 import json
 import logging
 import datetime
+import requests
+from bs4 import BeautifulSoup
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from google import genai
@@ -10,6 +12,34 @@ from src.config import GEMINI_API_KEY
 from src.models import Article
 
 logger = logging.getLogger(__name__)
+
+def fetch_website_text(url: str) -> str:
+    """Fetches text content from the given URL. Use this to read the latest updates from a website."""
+    try:
+        logger.info(f"Gemini Tool called: fetching {url}")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.extract()
+            
+        text = soup.get_text(separator='\n')
+        # Break into lines and remove leading and trailing space on each
+        lines = (line.strip() for line in text.splitlines())
+        # Break multi-headlines into a line each
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        # Drop blank lines
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+        
+        return text[:4000] # Limit to avoid context bloat
+    except Exception as e:
+        logger.warning(f"Failed to fetch {url}: {e}")
+        return f"Error fetching {url}: {e}"
 
 def load_prompt_template(filepath: str = "prompt.txt") -> str:
     try:
@@ -59,8 +89,8 @@ def summarize_articles(
         # Filter out previously posted articles BEFORE sending to Gemini if possible
         articles_to_process = [art for art in all_articles if art.link not in posted_urls]
         
-        if not articles_to_process:
-            logger.info("No new, unposted articles to process.")
+        if not articles_to_process and not all_html_urls:
+            logger.info("No new, unposted articles to process and no HTML URLs to check.")
             return {
                 "has_main": False,
                 "message": "本日は新しくお伝えできるお知らせや、関連ニュースがありませんでした。",
@@ -98,6 +128,7 @@ def summarize_articles(
         )
 
         logger.info(f"Sending {len(articles_to_process)} articles to Gemini for summarization.")
+        logger.info(f"=== GENERATED PROMPT ===\n{prompt}\n========================")
 
         schema = {
             "type": "OBJECT",
@@ -124,21 +155,40 @@ def summarize_articles(
             "required": ["message", "articles"]
         }
 
-        response = client.models.generate_content(
+        chat = client.chats.create(
             model='gemini-3.1-flash-lite-preview',
-            contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=schema,
                 temperature=0.3,
-                tools=[{"google_search": {}}]
-            ),
+                tools=[fetch_website_text],
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                    disable=False,
+                    maximum_remote_calls=20
+                )
+            )
         )
 
+        response = chat.send_message(prompt)
+
+        if not response.text:
+            logger.error("Gemini failed to generate text response. It may have hit the remote call limit or failed.")
+            return None
+
         result = json.loads(response.text)
+        
+        # Filter out articles that incorrectly use a top-level URL instead of a detailed article URL
+        valid_articles = []
+        for art in result.get("articles", []):
+            if art.get("link") in all_html_urls:
+                logger.warning(f"Skipped article '{art.get('title')}' because its link is a top-level URL: {art.get('link')}")
+                continue
+            valid_articles.append(art)
+        
+        result["articles"] = valid_articles
         result["has_main"] = has_main
         
-        logger.info(f"Successfully generated summary with {len(result.get('articles', []))} articles.")
+        logger.info(f"Successfully generated summary with {len(valid_articles)} valid articles.")
         return result
 
     except Exception as e:
