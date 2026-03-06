@@ -167,7 +167,7 @@ def summarize_articles(
                         "type": "OBJECT",
                         "properties": {
                             "title": {"type": "STRING", "description": "記事のタイトル"},
-                            "category": {"type": "STRING", "description": "カテゴリ ('ニュース', '補助金・法律', 'イベント')"},
+                            "category": {"type": "STRING", "description": "カテゴリ ('ニュース', '補助金・支援', '空き家・DIY', '集客・コミュニティ')"},
                             "summary": {"type": "STRING", "description": "小規模事業者に向けた簡潔な要約（2〜3行）"},
                             "link": {"type": "STRING", "description": "元の記事のURL"}
                         },
