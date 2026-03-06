@@ -58,6 +58,14 @@ def fetch_website_text(url: str) -> str:
         result_text = text[:4000] # Limit to avoid context bloat
         _fetch_cache[url] = result_text
         return result_text
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            logger.info(f"Gemini Tool exploration hit 404 Not Found: {url}")
+        else:
+            logger.warning(f"Failed to fetch {url}: {e}")
+        error_msg = f"Error fetching {url}: {e}\n\n[SYSTEM]: This URL is invalid or inaccessible. DO NOT try to fetch this exact URL again. Please proceed with other information or stop searching."
+        _fetch_cache[url] = error_msg
+        return error_msg
     except Exception as e:
         logger.warning(f"Failed to fetch {url}: {e}")
         error_msg = f"Error fetching {url}: {e}\n\n[SYSTEM]: This URL is invalid or inaccessible. DO NOT try to fetch this exact URL again. Please proceed with other information or stop searching."

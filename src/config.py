@@ -18,6 +18,8 @@ def setup_logging():
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     )
+    # Suppress harmless "non-text parts" warning during automatic function calling
+    logging.getLogger("google_genai.types").setLevel(logging.ERROR)
 
 def load_sources_list(filepath="sources.md") -> Dict[str, List[Source]]:
     """
