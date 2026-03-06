@@ -13,8 +13,13 @@ from src.models import Article
 
 logger = logging.getLogger(__name__)
 
+_fetch_cache = {}
+
 def fetch_website_text(url: str) -> str:
     """Fetches text content from the given URL. Use this to read the latest updates from a website."""
+    if url in _fetch_cache:
+        return _fetch_cache[url]
+        
     try:
         logger.info(f"Gemini Tool called: fetching {url}")
         headers = {
@@ -24,10 +29,24 @@ def fetch_website_text(url: str) -> str:
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
         
+        from urllib.parse import urljoin
+        
         # Remove script and style elements
         for script in soup(["script", "style"]):
             script.extract()
             
+        # Append absolute URLs to anchor texts so Gemini can follow links
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            abs_url = urljoin(url, href)
+            # Only append if it looks like a valid http link and not an anchor
+            if abs_url.startswith('http') and not href.startswith('#'):
+                link_text = a.get_text(strip=True)
+                if link_text:
+                    a.string = f"{link_text} ( URL: {abs_url} )"
+                else:
+                    a.string = f"( URL: {abs_url} )"
+                    
         text = soup.get_text(separator='\n')
         # Break into lines and remove leading and trailing space on each
         lines = (line.strip() for line in text.splitlines())
@@ -36,10 +55,14 @@ def fetch_website_text(url: str) -> str:
         # Drop blank lines
         text = '\n'.join(chunk for chunk in chunks if chunk)
         
-        return text[:4000] # Limit to avoid context bloat
+        result_text = text[:4000] # Limit to avoid context bloat
+        _fetch_cache[url] = result_text
+        return result_text
     except Exception as e:
         logger.warning(f"Failed to fetch {url}: {e}")
-        return f"Error fetching {url}: {e}"
+        error_msg = f"Error fetching {url}: {e}\n\n[SYSTEM]: This URL is invalid or inaccessible. DO NOT try to fetch this exact URL again. Please proceed with other information or stop searching."
+        _fetch_cache[url] = error_msg
+        return error_msg
 
 def load_prompt_template(filepath: str = "prompt.txt") -> str:
     try:
@@ -47,7 +70,7 @@ def load_prompt_template(filepath: str = "prompt.txt") -> str:
     except Exception as e:
         logger.error(f"Failed to load prompt template from {filepath}: {e}")
         # Fallback minimal prompt
-        return "以下の記事から最も重要な3件を要約してください。\n記事一覧:\n{articles_text}"
+        return "以下の記事から最も重要な5件を要約してください。\n記事一覧:\n{articles_text}"
 
 def summarize_articles(
     main_articles: List[Article], 
@@ -156,7 +179,7 @@ def summarize_articles(
         }
 
         chat = client.chats.create(
-            model='gemini-3.1-flash-lite-preview',
+            model='gemini-3.1-pro-preview',
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=schema,
