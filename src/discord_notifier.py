@@ -50,6 +50,9 @@ def post_to_discord(summary_data: dict, dry_run: bool = False):
         }
         embeds.append(embed)
 
+    # Append the dashboard URL to the main message
+    message += "\n\n📊 **分析ダッシュボード**: https://mirairss-n2uvbf24ntjhvndtfipbjl.streamlit.app/"
+
     payload = {
         "content": message,
         "embeds": embeds,
