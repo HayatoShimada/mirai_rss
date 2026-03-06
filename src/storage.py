@@ -3,9 +3,43 @@ import logging
 from pathlib import Path
 from typing import List
 
+import csv
+import datetime
+
 logger = logging.getLogger(__name__)
 
 POSTED_ARTICLES_FILE = Path("posted_articles.json")
+ARTICLES_CSV_FILE = Path("articles_history.csv")
+
+def save_articles_to_csv(articles_list: List[dict]) -> None:
+    """Saves a list of article dictionaries to a CSV file for dashboard analytics."""
+    if not articles_list:
+        return
+        
+    file_exists = ARTICLES_CSV_FILE.exists()
+    
+    try:
+        with open(ARTICLES_CSV_FILE, mode='a', encoding='utf-8', newline='') as f:
+            fieldnames = ['timestamp', 'title', 'category', 'summary', 'link']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            
+            if not file_exists:
+                writer.writeheader()
+                
+            timestamp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y-%m-%d %H:%M:%S')
+            
+            for article in articles_list:
+                row = {
+                    'timestamp': timestamp,
+                    'title': article.get('title', ''),
+                    'category': article.get('category', ''),
+                    'summary': article.get('summary', ''),
+                    'link': article.get('link', '')
+                }
+                writer.writerow(row)
+        logger.info(f"Appended {len(articles_list)} articles to {ARTICLES_CSV_FILE}")
+    except Exception as e:
+        logger.error(f"Failed to save articles to {ARTICLES_CSV_FILE}: {e}")
 
 def load_posted_urls() -> List[str]:
     """Loads a list of previously posted URLs from a JSON file."""

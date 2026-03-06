@@ -55,7 +55,7 @@ def fetch_website_text(url: str) -> str:
         # Drop blank lines
         text = '\n'.join(chunk for chunk in chunks if chunk)
         
-        result_text = text[:4000] # Limit to avoid context bloat
+        result_text = text[:2500] # Token optimization: Limit to 2500 chars to avoid context bloat
         _fetch_cache[url] = result_text
         return result_text
     except requests.exceptions.HTTPError as e:
@@ -118,7 +118,8 @@ def summarize_articles(
             all_html_urls.extend(fallback_html_urls)
             
         # Filter out previously posted articles BEFORE sending to Gemini if possible
-        articles_to_process = [art for art in all_articles if art.link not in posted_urls]
+        # Token optimization: Limit to top 30 articles
+        articles_to_process = [art for art in all_articles if art.link not in posted_urls][:30]
         
         if not articles_to_process and not all_html_urls:
             logger.info("No new, unposted articles to process and no HTML URLs to check.")
@@ -195,7 +196,7 @@ def summarize_articles(
                 tools=[fetch_website_text],
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(
                     disable=False,
-                    maximum_remote_calls=20
+                    maximum_remote_calls=10
                 )
             )
         )

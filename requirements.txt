@@ -5,3 +5,7 @@ python-dotenv
 beautifulsoup4==4.14.3
 python-dateutil==2.9.0.post0
 tenacity==9.1.4
+
+pandas
+plotly
+streamlit

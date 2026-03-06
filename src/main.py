@@ -5,7 +5,7 @@ from src.config import load_sources_list, setup_logging
 from src.rss_fetcher import fetch_rss_feeds
 from src.summarizer import summarize_articles
 from src.discord_notifier import post_to_discord
-from src.storage import load_posted_urls, save_posted_urls
+from src.storage import load_posted_urls, save_posted_urls, save_articles_to_csv
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def process_sources(sources_list, hours_limit):
 def main():
     parser = argparse.ArgumentParser(description="Mirai RSS Bot")
     parser.add_argument("--dry-run", action="store_true", help="Run without posting to Discord")
-    parser.add_argument("--hours", type=int, default=168, help="Fetch articles from the last N hours (default 7 days)")
+    parser.add_argument("--hours", type=int, default=48, help="Fetch articles from the last N hours (default 48 hours)")
     args = parser.parse_args()
 
     setup_logging()
@@ -61,7 +61,7 @@ def main():
         fallback_articles=fallback_articles, 
         main_html_urls=[s.url for s in main_html_sources],
         fallback_html_urls=[s.url for s in fallback_html_sources],
-        posted_urls=posted_urls
+        posted_urls=posted_urls[-50:]  # Token optimization: Only pass the 50 most recent URLs to Gemini
     )
     
     if not summary_data:
@@ -76,6 +76,8 @@ def main():
             # Important: Keep the order and append to the end. storage module only keeps the latest 300
             posted_urls.extend(newly_posted)
             save_posted_urls(posted_urls)
+            # Save articles to CSV for dashboard analytics
+            save_articles_to_csv(summary_data["articles"])
 
     # 6. Post to Discord
     logger.info("Posting to Discord...")
