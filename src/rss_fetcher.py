@@ -10,8 +10,8 @@ from src.models import Source, Article
 
 logger = logging.getLogger(__name__)
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def fetch_url(url: str, timeout: int = 15) -> bytes:
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10), reraise=True)
+def fetch_url(url: str, timeout: int = 30) -> bytes:
     """Fetches url content with a timeout and retry logic."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -68,6 +68,6 @@ def fetch_rss_feeds(sources: List[Source], hours_limit: int = 24) -> List[Articl
                 ))
                 
         except Exception as e:
-            logger.error(f"Error fetching RSS {src.url}: {e}", exc_info=True)
+            logger.error(f"Error fetching RSS {src.url}: {e}")
 
     return articles
