@@ -1,6 +1,6 @@
 # Mirai RSS Bot
 
-富山県南砺市井波でこれから創業を考えている、あるいは創業し始めたばかりの小規模な個人事業主（1〜2人での創業）向け（ミライ店主会Bot）に、空き家活用、DIY、田舎での集客、コミュニティづくり、地域ニュースなどの有益な情報を収集・厳選してDiscordに毎日定期配信するBotです。
+富山県南砺市井波でこれから創業を考えている、あるいは創業し始めたばかりの小規模な個人事業主（1〜2人での創業）向け（ミライ店主会Bot）に、空き家活用、DIY、田舎での集客、コミュニティづくり、地域ニュースなどの有益な情報を収集・厳選してDiscordに週1回定期配信するBotです。
 RSSが提供されていないWebサイトの場合でも、直接URLを渡すことで、Google Gemini APIが自らインターネットを検索・内容を確認し、有益な情報を厳選・要約します。
 
 ## 主な機能
@@ -9,7 +9,7 @@ RSSが提供されていないWebサイトの場合でも、直接URLを渡す�
 - **代替ニュース機能**: 定義されたメイン情報源（南砺市周辺）から新しい情報が無かった場合は、自動的に代替ソース（全国のビジネス・空き家情報など）から情報をピックアップします。
 - **配信履歴の記憶**: `posted_articles.json` に過去の投稿URLを記録してGitHub上に保存することで、昨日と同じニュースが重複して配信されることを防ぎます。
 - **Discord Webhook連携**: スマートフォンからも見やすいEmbed（埋め込みメッセージ形式）でDiscordに自動投稿されます。
-- **完全自動運用**: GitHub Actionsを利用するためサーバーは一切不要で、毎日定時に自動実行されます。
+- **完全自動運用**: GitHub Actionsを利用するためサーバーは一切不要で、毎週定時に自動実行されます。
 - **分析ダッシュボード**: 収集した記事の傾向や過去の配信履歴は [Streamlit ダッシュボード (https://mirairss-n2uvbf24ntjhvndtfipbjl.streamlit.app/)](https://mirairss-n2uvbf24ntjhvndtfipbjl.streamlit.app/) で確認できます。 
 
 ## 必要要件
@@ -50,14 +50,14 @@ Botの取得対象サイト（RSSまたはHTML）は、コードを変更する�
 - `Selector` は `Type` が `HTML` の場合にのみ使用します。新着情報が含まれるHTML要素（liタグやarticleタグなど）をCSSセレクタ形式で指定してください。
 
 ## GitHub Actionsの運用と手動での実行方法
-GitHub上で自動で毎日稼働させる手順は以下の通りです：
+GitHub上で自動で毎週稼働させる手順は以下の通りです：
 
 1. リポジトリの [Settings] タブを開きます。
 2. 左メニューから [Secrets and variables] > [Actions] を選択します。
 3. `New repository secret` ボタンから、以下の2つのシークレット値を登録してください。
    - `DISCORD_WEBHOOK_URL` (Discord WebhookのURL)
    - `GEMINI_API_KEY` (Gemini APIのキー)
-4. あとは `.github/workflows/rss_bot.yml` の設定に従い、日本時間の毎日朝4:00に自動実行されます。
+4. あとは `.github/workflows/rss_bot.yml` の設定に従い、日本時間の毎週月曜朝4:00に自動実行されます。
 
 ### 手動でBotを実行する方法 (Workflow Dispatch)
 新しく追加した設定の動作確認や、今日すぐにニュースをまとめたい場合は、GitHubの画面から手動でBotを起動できます。

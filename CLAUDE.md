@@ -10,7 +10,7 @@ mirai_rss is a Python tool that fetches RSS feeds related to Toyama Prefecture N
 
 - **Language:** Python
 - **Libraries:** requests, feedparser, Gemini API
-- **Deployment:** GitHub Actions (scheduled daily at 4:00 JST)
+- **Deployment:** GitHub Actions (scheduled weekly on Monday at 4:00 JST)
 
 ## Architecture
 
